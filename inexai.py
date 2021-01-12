@@ -157,8 +157,18 @@ x = preprocess_input(x)
 # basemodel, set training =False for the BN layer
 x = base_model(x, training=False)
 # print(x.shape)
-#Conv_layer = tf.keras.layers.Conv2D(32, 1)(x)
-# commented out to test global_Av_layer in fine tuning tutoral
+
+# add new convolution layers
+x = tf.keras.layers.Conv2D(64, 1)(x)
+# add dropout layer
+x = tf.keras.layers.Dropout(0.2)(x)
+x = tf.keras.layers.Conv2D(64, 1)(x)
+# add dropout layer
+x = tf.keras.layers.Dropout(0.2)(x)
+x = tf.keras.layers.Conv2D(64, 1)(x)
+# add dropout layer
+x = tf.keras.layers.Dropout(0.2)(x)
+
 flatten = tf.keras.layers.Flatten()(x)
 pred_layer_1 = tf.keras.layers.Dense(1024, activation = 'relu')(flatten)
 
