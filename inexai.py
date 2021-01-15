@@ -4,7 +4,7 @@ import tensorflow as tf
 import random
 from PIL import Image
 
-
+class_max = 800
 
 def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 
@@ -13,19 +13,25 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
     # load images
     images = []
     classes = []
+
+    train_test_split = 0.1
+    number_of_test = int(class_max * train_test_split)
     for i, c in enumerate(class_folders):
         #images_per_class = sorted(os.path.join(path, c))
         images_per_class = [f for f in sorted(os.listdir(os.path.join(path, c))) if 'jpg' in f]
         # testing inbalanced class theory so limiting to 800 per class - can remove 20-21 later
-        if len(images_per_class) > 800:
-            images_per_class = images_per_class[0:800]
+        if len(images_per_class) > class_max:
+            images_per_class = images_per_class[0:class_max]
         image_class = np.zeros(len(class_folders))
         image_class[i] = 1
 
-        for image_per_class in images_per_class:
-            images.append(os.path.join(path, c, image_per_class))
-            # the index will be the class label
-            classes.append(image_class)
+        for image_i, image_per_class in enumerate(images_per_class):
+            if train == False and image_i <= number_of_test:
+                images.append(os.path.join(path, c, image_per_class))
+                classes.append(image_class)
+            elif train == True and image_i > number_of_test:
+                images.append(os.path.join(path, c, image_per_class))
+                classes.append(image_class)
 
     random.seed(10)
     shuffle_index = random.sample(list(range(len(images))), len(images))
@@ -34,14 +40,6 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
     classes_shuffle = [classes[i] for i in shuffle_index]
 
     #print(classes_shuffle[100], images_shuffle[100])
-    train_test_split = 0.1
-    number_of_test = int(len(images) * train_test_split)
-    if train == False:
-        images = images_shuffle[0:number_of_test]
-        classes = classes_shuffle[0:number_of_test]
-    else:
-        images = images_shuffle[number_of_test:len(images)]
-        classes = classes_shuffle[number_of_test:len(images)]
 
     images_tf = tf.data.Dataset.from_tensor_slices(images)
     classes_tf = tf.data.Dataset.from_tensor_slices(classes)
@@ -61,6 +59,10 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
             image.set_shape((224, 224, 3))
 #             print(image.shape)
 
+        if train == True:
+            image = tf.image.random_brightness(image, 0.2)
+            image = tf.image.random_contrast(image, 0.2, 0.5)
+            #image = tf.image.random_jpeg_quality(image, 75, 100)
 
         # change DType of image to float32
         image = tf.cast(image, tf.float32)
@@ -78,13 +80,15 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 
     return dataset, len(class_folders)
 
-path = '/Users/georgebrockman/code/georgebrockman/Autoenhance.ai/InternalExternalAI/images/training_data/'
+#path = '/Users/georgebrockman/code/georgebrockman/Autoenhance.ai/InternalExternalAI/images/training_data/'
+path = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/Train'
 train_dataset, num_classes = dataset_classifcation(path, 224, 224)
 test_dataset, num_classes = dataset_classifcation(path, 224, 224, train=False)
 
 IMG_WIDTH, IMG_HEIGHT = 224, 224
 IMG_SIZE = IMG_WIDTH, IMG_HEIGHT
-batch_size = 32
+#batch_size = 32
+batch_size = 64
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
@@ -98,7 +102,7 @@ IMG_SHAPE = IMG_SIZE + (3,)
 base_model = tf.keras.applications.MobileNetV2(input_shape=IMG_SHAPE,
                                              include_top=False,
                                              weights='imagenet')
-
+top_layers = base_model.output
 #base_model.summary()
 
 image_batch, label_batch = next(iter(train_dataset))
@@ -106,7 +110,7 @@ image_batch, label_batch = next(iter(train_dataset))
 # feature_batch = base_model(image_batch)
 
 # freeze the convolutional base
-base_model.trainable=True
+base_model.trainable=False
 
 fine_tune_at = 110
 
@@ -129,8 +133,8 @@ pred_layer = tf.keras.layers.Dense(num_classes, activation='softmax')
 data_aug = tf.keras.Sequential([
     tf.keras.layers.experimental.preprocessing.RandomFlip('horizontal'),
     tf.keras.layers.experimental.preprocessing.RandomFlip('vertical'),
-    tf.keras.layers.experimental.preprocessing.RandomRotation(0.25),
-    # tf.keras.layers.experimental.preprocessing.RandomZoom(.5, .2),
+    tf.keras.layers.experimental.preprocessing.RandomRotation(0.25)
+    #tf.keras.layers.experimental.preprocessing.RandomZoom(.5, .2)
 ])
 
 # rescale the pixel values to match the expected values of the MobileNetV2 model
@@ -155,13 +159,24 @@ x = data_aug(inputs)
 # preprocess, feed x into and reassign variable
 x = preprocess_input(x)
 # basemodel, set training =False for the BN layer
-x = base_model(x, training=False)
+base_model = base_model(x, training=False)
 # print(x.shape)
 #Conv_layer = tf.keras.layers.Conv2D(32, 1)(x)
 # commented out to test global_Av_layer in fine tuning tutoral
-flatten = tf.keras.layers.Flatten()(x)
-pred_layer_1 = tf.keras.layers.Dense(1024, activation = 'relu')(flatten)
 
+'''x = tf.keras.layers.Conv2D(64, 1)(x)
+x = tf.keras.layers.Dropout(0.2)(x)
+x = tf.keras.layers.Conv2D(64, 1)(x)
+x = tf.keras.layers.Dropout(0.2)(x)
+x = tf.keras.layers.Conv2D(64, 1)(x)
+x = tf.keras.layers.Dropout(0.2)(x)
+
+flatten = tf.keras.layers.Flatten()(x)
+pred_layer_1 = tf.keras.layers.Dense(100, activation = 'relu')(flatten)'''
+
+top_layers = tf.keras.layers.GlobalAveragePooling2D()(base_model)
+top_layers = tf.keras.layers.Dense(1024, activation='relu')(top_layers)
+predictions = tf.keras.layers.Dense(2, activation='softmax')(top_layers)
 # feature extraction
 # x = global_av_layer(x)
 # # add a dropout layer
@@ -172,33 +187,30 @@ pred_layer_1 = tf.keras.layers.Dense(1024, activation = 'relu')(flatten)
 
 
 # commented out for global_av_layer experiment
-outputs = pred_layer(pred_layer_1)
-print(outputs.shape)
-model = tf.keras.Model(inputs, outputs)
+#outputs = pred_layer(pred_layer_1)
+#print(outputs.shape)
+model = tf.keras.Model(inputs, predictions)
 
-es = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
+es = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=25)
 
-base_learning_rate = 0.000001
-model.compile(optimizer=tf.keras.optimizers.Adam(lr=base_learning_rate),
+base_learning_rate = 1e-3
+model.compile(optimizer=tf.keras.optimizers.Adam(lr=base_learning_rate, decay=1e-4),
               # Only two linear outputs so use BinaryCrossentropy and logits =True
-              loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+              loss='categorical_crossentropy',
               metrics=["accuracy"])
 #tf.keras.metrics.BinaryAccuracy()
-checkpoint_path = "/Users/georgebrockman/code/georgebrockman/Autoenhance.ai/InternalExternalAI/checkpoints/cp.ckpt"
+#checkpoint_path = "/Users/georgebrockman/code/georgebrockman/Autoenhance.ai/InternalExternalAI/checkpoints/cp.ckpt"
+checkpoint_path = "./"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 # Create a callback that saves the model's weights
 cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
-initial_epochs = 20
+initial_epochs = 100
 history = model.fit(train_dataset,
                     epochs=initial_epochs,
-                    callbacks=[cp_callback, es],
+                    callbacks=[cp_callback, es, tf.keras.callbacks.ModelCheckpoint(filepath='model/best_model.h5', monitor='val_loss', save_best_only=True)],
                     validation_data= test_dataset)
 # save model
 model.save('model/g-inexai.h5')
-
-
-
-
