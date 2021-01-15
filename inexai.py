@@ -170,7 +170,6 @@ x = tf.keras.layers.Conv2D(64, 1)(x)
 x = tf.keras.layers.Dropout(0.2)(x)
 x = tf.keras.layers.Conv2D(64, 1)(x)
 x = tf.keras.layers.Dropout(0.2)(x)
-
 flatten = tf.keras.layers.Flatten()(x)
 pred_layer_1 = tf.keras.layers.Dense(100, activation = 'relu')(flatten)'''
 
