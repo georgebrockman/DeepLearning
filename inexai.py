@@ -59,10 +59,10 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
             image.set_shape((224, 224, 3))
 #             print(image.shape)
 
-        if train == True:
+        '''if train == True:
             image = tf.image.random_brightness(image, 0.2)
             image = tf.image.random_contrast(image, 0.2, 0.5)
-            #image = tf.image.random_jpeg_quality(image, 75, 100)
+            #image = tf.image.random_jpeg_quality(image, 75, 100)'''
 
         # change DType of image to float32
         image = tf.cast(image, tf.float32)
@@ -203,13 +203,13 @@ checkpoint_path = "./"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 # Create a callback that saves the model's weights
-cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
-                                                 save_weights_only=True,
-                                                 verbose=1)
+#cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
+#                                                 save_weights_only=True,
+#                                                 verbose=1)
 initial_epochs = 100
 history = model.fit(train_dataset,
                     epochs=initial_epochs,
-                    callbacks=[cp_callback, es, tf.keras.callbacks.ModelCheckpoint(filepath='model/best_model.h5', monitor='val_loss', save_best_only=True)],
+                    callbacks=[es, tf.keras.callbacks.ModelCheckpoint(filepath='model/best_model.h5', monitor='val_loss', save_best_only=True)],
                     validation_data= test_dataset)
 # save model
 model.save('model/g-inexai.h5')
