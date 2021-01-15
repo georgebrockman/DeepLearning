@@ -8,7 +8,7 @@ import shutil
 new_model = tf.keras.models.load_model('model/best_model.h5')
 
 # load 1000 more images from the source file
-class_max = 1000
+class_max = 500
 
 path = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/Source'
 
@@ -21,6 +21,7 @@ def load_and_read(path, resize_h=224, resize_w=224):
     images = []
     classes = []
     dataset = []
+    image_name = []
 
     for image, class_ in enumerate(class_folders):
         images_per_class = [f for f in sorted(os.listdir(os.path.join(path, class_))) if f.endswith('jpg')]
@@ -33,6 +34,7 @@ def load_and_read(path, resize_h=224, resize_w=224):
         for image_i, image_per_class in enumerate(images_per_class):
             images.append(os.path.join(path, class_, image_per_class))
             classes.append(image_class)
+            image_name.append([class_, image_per_class])
 
     ## can i select them randomly between the two folders?
     ## is there much point including the classes during the loading process?
@@ -50,19 +52,28 @@ def load_and_read(path, resize_h=224, resize_w=224):
         img = (img / 255.0)
         dataset.append(img)
 
-    return dataset
+    return dataset, image_name
 
 class_names = ['external', 'internal']
 
-def prediction_and_sort(dataset):
-    for image in dataset:
+
+
+def prediction_and_sort(dataset, image_name):
+    max_file_in_folder = 500
+    internal_num = len(os.listdir(path_to_internal))
+    external_num = len(os.listdir(path_to_external))
+
+    for index, image in enumerate(dataset):
         x = np.array(image)
         x = np.expand_dims(x, axis=0)
-        prediction = new_model.predict(x)[0]
-        if prediction == 'internal':
-            pass                # shutil.move(path, path_to_internal)
-        elif prediction == 'external':
-            pass                # shutil.move(path, path_to_external)
+        prediction = np.argmax(new_model.predict(x)[0], axis=0)
+        print(prediction, image_name[index])
+        if prediction == 1 and internal_num < max_file_in_folder:
+            shutil.move(os.path.join(path, image_name[index][0], image_name[index][1]) , os.path.join(path_to_internal, image_name[index][1]))
+            internal_num += 1
+        elif prediction == 0 and external_num < max_file_in_folder:
+            shutil.move(os.path.join(path, image_name[index][0], image_name[index][1]) , os.path.join(path_to_external, image_name[index][1]))
+            external_num += 1
 
-
-
+dataset, image_name = load_and_read(path)
+prediction_and_sort(dataset, image_name)
