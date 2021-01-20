@@ -3,8 +3,10 @@ import os
 import tensorflow as tf
 import random
 from PIL import Image
+from sklearn.model_selection import train_test_split
 
-class_max = 800
+class_max = 5000
+batch_size = 32
 
 def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 
@@ -14,8 +16,8 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
     images = []
     classes = []
 
-    train_test_split = 0.1
-    number_of_test = int(class_max * train_test_split)
+    train_test_split_num = 0.1
+    number_of_test = int(class_max * train_test_split_num)
     for i, c in enumerate(class_folders):
         #images_per_class = sorted(os.path.join(path, c))
         images_per_class = [f for f in sorted(os.listdir(os.path.join(path, c))) if 'jpg' in f]
@@ -26,25 +28,13 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
         image_class[i] = 1
 
         for image_i, image_per_class in enumerate(images_per_class):
-            if train == False and image_i <= number_of_test:
-                images.append(os.path.join(path, c, image_per_class))
-                classes.append(image_class)
-            elif train == True and image_i > number_of_test:
-                images.append(os.path.join(path, c, image_per_class))
-                classes.append(image_class)
+            images.append(os.path.join(path, c, image_per_class))
+            classes.append(i)
 
-    random.seed(10)
-    shuffle_index = random.sample(list(range(len(images))), len(images))
+    train_filenames, val_filenames, train_labels, val_labels = train_test_split(images, classes, train_size=0.9, random_state=420)
 
-    images_shuffle = [images[i] for i in shuffle_index]
-    classes_shuffle = [classes[i] for i in shuffle_index]
-
-    #print(classes_shuffle[100], images_shuffle[100])
-
-    images_tf = tf.data.Dataset.from_tensor_slices(images)
-    classes_tf = tf.data.Dataset.from_tensor_slices(classes)
-    # put two arrays together so that each image has its classifying label
-    dataset = tf.data.Dataset.zip((images_tf, classes_tf))
+    num_train = len(train_filenames)
+    num_val = len(val_filenames)
 
     @tf.function
     def read_images(image_path, class_type, mirrored=False):
@@ -73,28 +63,22 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 
         return image, class_type
 
-    dataset = dataset.map(
-        read_images,
-        num_parallel_calls=tf.data.experimental.AUTOTUNE,
-        deterministic=False)
 
-    return dataset, len(class_folders)
+    AUTOTUNE = tf.data.experimental.AUTOTUNE
+
+    train_data = tf.data.Dataset.from_tensor_slices((tf.constant(train_filenames), tf.constant(train_labels))).map(read_images).shuffle(1000).batch(batch_size).prefetch(buffer_size=AUTOTUNE)
+    val_data = tf.data.Dataset.from_tensor_slices((tf.constant(val_filenames), tf.constant(val_labels))).map(read_images).batch(batch_size).prefetch(buffer_size=AUTOTUNE)
+
+    return train_data, val_data, num_train, len(class_folders)
 
 #path = '/Users/georgebrockman/code/georgebrockman/Autoenhance.ai/InternalExternalAI/images/training_data/'
 path = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/Train'
-train_dataset, num_classes = dataset_classifcation(path, 224, 224)
-test_dataset, num_classes = dataset_classifcation(path, 224, 224, train=False)
+train_data, val_data, num_train, num_classes = dataset_classifcation(path, 224, 224)
 
 IMG_WIDTH, IMG_HEIGHT = 224, 224
 IMG_SIZE = IMG_WIDTH, IMG_HEIGHT
 #batch_size = 32
-batch_size = 64
-
-AUTOTUNE = tf.data.experimental.AUTOTUNE
-
-train_dataset = train_dataset.cache().shuffle(1000).batch(32).prefetch(buffer_size=AUTOTUNE)
-
-test_dataset = test_dataset.cache().batch(32).prefetch(buffer_size=AUTOTUNE)
+#print(train_dataset[0])
 
 # import the base model
 # instantiate the MobileNet V2
@@ -105,14 +89,14 @@ base_model = tf.keras.applications.MobileNetV2(input_shape=IMG_SHAPE,
 top_layers = base_model.output
 #base_model.summary()
 
-image_batch, label_batch = next(iter(train_dataset))
+image_batch, label_batch = next(iter(train_data))
 # # global_av_layer experiment
 # feature_batch = base_model(image_batch)
 
 # freeze the convolutional base
-base_model.trainable=False
+base_model.trainable=True
 
-fine_tune_at = 110
+fine_tune_at = 100
 
 # freeze all the layers before the tuning - this can be done with a for loop and slicing
 for layer in base_model.layers[:fine_tune_at]:
@@ -124,7 +108,7 @@ for layer in base_model.layers[:fine_tune_at]:
 #print(feature_batch_av.shape)
 
 # pred_layer_1 = tf.keras.layers.Dense(1024, activation = 'relu')
-pred_layer = tf.keras.layers.Dense(num_classes, activation='softmax')
+pred_layer = tf.keras.layers.Dense(1, activation='softmax')
 #pred_batch = pred_layer(feature_batch_av)
 #pred_batch = pred_layer(pred_layer_1)
 #pred_batch.shape
@@ -173,9 +157,8 @@ x = tf.keras.layers.Dropout(0.2)(x)
 flatten = tf.keras.layers.Flatten()(x)
 pred_layer_1 = tf.keras.layers.Dense(100, activation = 'relu')(flatten)'''
 
-top_layers = tf.keras.layers.GlobalAveragePooling2D()(base_model)
-top_layers = tf.keras.layers.Dense(1024, activation='relu')(top_layers)
-predictions = tf.keras.layers.Dense(2, activation='softmax')(top_layers)
+x = tf.keras.layers.GlobalMaxPooling2D()(base_model)
+predictions = tf.keras.layers.Dense(1, activation='sigmoid')(x)
 # feature extraction
 # x = global_av_layer(x)
 # # add a dropout layer
@@ -192,10 +175,10 @@ model = tf.keras.Model(inputs, predictions)
 
 es = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=25)
 
-base_learning_rate = 1e-3
-model.compile(optimizer=tf.keras.optimizers.Adam(lr=base_learning_rate, decay=1e-4),
+base_learning_rate = 0.0001 #1e-3, decay=1e-4
+model.compile(optimizer=tf.keras.optimizers.Adam(lr=base_learning_rate/10),
               # Only two linear outputs so use BinaryCrossentropy and logits =True
-              loss='categorical_crossentropy',
+              loss=tf.keras.losses.BinaryCrossentropy(),
               metrics=["accuracy"])
 #tf.keras.metrics.BinaryAccuracy()
 #checkpoint_path = "/Users/georgebrockman/code/georgebrockman/Autoenhance.ai/InternalExternalAI/checkpoints/cp.ckpt"
@@ -207,9 +190,18 @@ checkpoint_dir = os.path.dirname(checkpoint_path)
 #                                                 save_weights_only=True,
 #                                                 verbose=1)
 initial_epochs = 100
-history = model.fit(train_dataset,
+steps_per_epoch = round(num_train)//batch_size
+val_steps = 20
+
+history = model.fit(train_data.repeat(),
+                    steps_per_epoch = steps_per_epoch,
                     epochs=initial_epochs,
                     callbacks=[es, tf.keras.callbacks.ModelCheckpoint(filepath='model/best_model.h5', monitor='val_loss', save_best_only=True)],
-                    validation_data= test_dataset)
+                    validation_data= val_data.repeat(),
+                    validation_steps=val_steps)
 # save model
 model.save('model/g-inexai.h5')
+
+# print best model score.
+best_score = max(history.history['accuracy'])
+print(best_score)

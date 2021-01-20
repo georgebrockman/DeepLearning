@@ -12,8 +12,8 @@ class_max = 500
 
 path = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/Source'
 
-path_to_internal = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/Train/Internal'
-path_to_external = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/Train/External'
+path_to_internal = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/Internal_new'
+path_to_external = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/External_new'
 
 # load images
 def load_and_read(path, resize_h=224, resize_w=224):
