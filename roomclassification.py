@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow_hub as hub
 
 class_max = 1000
-batch_size = 256
+batch_size = 128
 
 module_selection = ("mobilenet_v2_100_224", 224)
 handle_base, pixels = module_selection
