@@ -6,7 +6,7 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 
 class_max = 5000
-batch_size = 32
+batch_size = 256
 
 def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 
@@ -24,8 +24,8 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
         # testing inbalanced class theory so limiting to 800 per class - can remove 20-21 later
         if len(images_per_class) > class_max:
             images_per_class = images_per_class[0:class_max]
-        image_class = np.zeros(len(class_folders))
-        image_class[i] = 1
+        #image_class = np.zeros(len(class_folders))
+        #image_class[i] = 1
 
         for image_i, image_per_class in enumerate(images_per_class):
             images.append(os.path.join(path, c, image_per_class))
@@ -37,7 +37,7 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
     num_val = len(val_filenames)
 
     @tf.function
-    def read_images(image_path, class_type, mirrored=False):
+    def read_images(image_path, class_type, mirrored=False, train=False):
         image = tf.io.read_file(image_path)
         image = tf.image.decode_jpeg(image)
 
@@ -47,12 +47,12 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
             image, [resize_h, resize_w], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
             # set all images shape to RGB
             image.set_shape((224, 224, 3))
-#             print(image.shape)
 
-        '''if train == True:
+
+        if train == True:
             image = tf.image.random_brightness(image, 0.2)
             image = tf.image.random_contrast(image, 0.2, 0.5)
-            #image = tf.image.random_jpeg_quality(image, 75, 100)'''
+            image = tf.image.random_jpeg_quality(image, 75, 100)
 
         # change DType of image to float32
         image = tf.cast(image, tf.float32)
@@ -66,7 +66,7 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 
     AUTOTUNE = tf.data.experimental.AUTOTUNE
 
-    train_data = tf.data.Dataset.from_tensor_slices((tf.constant(train_filenames), tf.constant(train_labels))).map(read_images).shuffle(1000).batch(batch_size).prefetch(buffer_size=AUTOTUNE)
+    train_data = tf.data.Dataset.from_tensor_slices((tf.constant(train_filenames), tf.constant(train_labels))).map(lambda x,y: read_images(x, y, train=True)).shuffle(1000).batch(batch_size).prefetch(buffer_size=AUTOTUNE)
     val_data = tf.data.Dataset.from_tensor_slices((tf.constant(val_filenames), tf.constant(val_labels))).map(read_images).batch(batch_size).prefetch(buffer_size=AUTOTUNE)
 
     return train_data, val_data, num_train, len(class_folders)
@@ -96,7 +96,7 @@ image_batch, label_batch = next(iter(train_data))
 # freeze the convolutional base
 base_model.trainable=True
 
-fine_tune_at = 100
+fine_tune_at = 80
 
 # freeze all the layers before the tuning - this can be done with a for loop and slicing
 for layer in base_model.layers[:fine_tune_at]:
@@ -117,8 +117,8 @@ pred_layer = tf.keras.layers.Dense(1, activation='softmax')
 data_aug = tf.keras.Sequential([
     tf.keras.layers.experimental.preprocessing.RandomFlip('horizontal'),
     tf.keras.layers.experimental.preprocessing.RandomFlip('vertical'),
-    tf.keras.layers.experimental.preprocessing.RandomRotation(0.25)
-    #tf.keras.layers.experimental.preprocessing.RandomZoom(.5, .2)
+    tf.keras.layers.experimental.preprocessing.RandomRotation(0.25),
+    tf.keras.layers.experimental.preprocessing.RandomZoom(.5, .2)
 ])
 
 # rescale the pixel values to match the expected values of the MobileNetV2 model
@@ -189,14 +189,14 @@ checkpoint_dir = os.path.dirname(checkpoint_path)
 #cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
 #                                                 save_weights_only=True,
 #                                                 verbose=1)
-initial_epochs = 100
+initial_epochs = 200
 steps_per_epoch = round(num_train)//batch_size
 val_steps = 20
 
 history = model.fit(train_data.repeat(),
                     steps_per_epoch = steps_per_epoch,
                     epochs=initial_epochs,
-                    callbacks=[es, tf.keras.callbacks.ModelCheckpoint(filepath='model/best_model.h5', monitor='val_loss', save_best_only=True)],
+                    callbacks=[tf.keras.callbacks.ModelCheckpoint(filepath='model/best_model.h5', monitor='val_loss', save_best_only=True)],
                     validation_data= val_data.repeat(),
                     validation_steps=val_steps)
 # save model

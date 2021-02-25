@@ -28,12 +28,12 @@ def load_and_read(path, resize_h=224, resize_w=224):
         # limit number of images to class_max
         if len(images_per_class) > class_max:
             images_per_class = images_per_class[0:class_max]
-        image_class = np.zeros(len(class_folders))
-        image_class[image] = 1
+        #image_class = np.zeros(len(class_folders))
+        #image_class[image] = 1
 
         for image_i, image_per_class in enumerate(images_per_class):
             images.append(os.path.join(path, class_, image_per_class))
-            classes.append(image_class)
+            classes.append(image)
             image_name.append([class_, image_per_class])
 
     ## can i select them randomly between the two folders?
@@ -66,7 +66,7 @@ def prediction_and_sort(dataset, image_name):
     for index, image in enumerate(dataset):
         x = np.array(image)
         x = np.expand_dims(x, axis=0)
-        prediction = np.argmax(new_model.predict(x)[0], axis=0)
+        prediction = tf.round(new_model.predict(x)[0][0])
         print(prediction, image_name[index])
         if prediction == 1 and internal_num < max_file_in_folder:
             shutil.move(os.path.join(path, image_name[index][0], image_name[index][1]) , os.path.join(path_to_internal, image_name[index][1]))
