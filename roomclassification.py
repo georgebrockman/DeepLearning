@@ -92,8 +92,6 @@ IMG_SIZE = IMG_WIDTH, IMG_HEIGHT
 
 IMG_SHAPE = IMG_SIZE + (3,)
 
-base_model.trainable=True
-
 data_aug = tf.keras.Sequential([
     tf.keras.layers.experimental.preprocessing.RandomFlip('horizontal'),
     tf.keras.layers.experimental.preprocessing.RandomFlip('vertical'),
