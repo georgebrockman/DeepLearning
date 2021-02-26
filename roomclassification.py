@@ -84,7 +84,8 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 
 #path = '/Users/georgebrockman/code/georgebrockman/Autoenhance.ai/InternalExternalAI/images/training_data/'
 #path = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/Train'
-path = './data2/train'
+#path = './data2/train'
+path = 'home/Desktop/InternalExternalAI/data2/train'
 train_data, val_data, num_train, num_classes = dataset_classifcation(path, 224, 224)
 
 IMG_WIDTH, IMG_HEIGHT = 224, 224
@@ -109,7 +110,8 @@ model = tf.keras.Sequential([
     hub.KerasLayer(MODULE_HANDLE, trainable=do_fine_tuning),
     tf.keras.layers.Dropout(rate=0.2),
     tf.keras.layers.Dense(13,
-                          kernel_regularizer=tf.keras.regularizers.l2(0.0001))
+                          kernel_regularizer=tf.keras.regularizers.l2(0.0001),
+                          activation='softmax')
 ])
 model.build((None,)+IMAGE_SIZE+(3,))
 model.summary()
