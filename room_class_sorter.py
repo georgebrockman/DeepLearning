@@ -9,24 +9,25 @@ import tensorflow_hub as hub
 new_model = tf.keras.models.load_model('model/g-inexai.h5', custom_objects={'KerasLayer':hub.KerasLayer})
 
 # load 200 models per class
-class_max = 200
+class_max = 1000
 
 path = '../../InternalExternalAI/data2/train'
 
 # path to new sorted class_folders
-path_to_bath = 'home/Desktop/InternalExternalAI/data3/train/bathroom/'
-path_to_bed = 'home/Desktop/InternalExternalAI/data3/train/bedroom/'
-path_to_cons = 'home/Desktop/InternalExternalAI/data3/train/conservatory/'
-path_to_din = 'home/Desktop/InternalExternalAI/data3/train/dining_room/'
-path_to_entr = 'home/Desktop/InternalExternalAI/data3/train/entrance_hall_landing/'
-path_to_foh = 'home/Desktop/InternalExternalAI/data3/train/front_of_house/'
-path_to_gard = 'home/Desktop/InternalExternalAI/data3/train/garden/'
-path_to_sink = 'home/Desktop/InternalExternalAI/data3/train/kitchen/'
-path_to_live = 'home/Desktop/InternalExternalAI/data3/train/living_room/'
-path_to_pool = 'home/Desktop/InternalExternalAI/data3/train/pool/'
-street_path = 'home/Desktop/InternalExternalAI/data3/train/street_scape/'
-path_to_stud = 'home/Desktop/InternalExternalAI/data3/train/study_office/'
-path_to_util = 'home/Desktop/InternalExternalAI/data3/train/utility_room/'
+root_path = '../../InternalExternalAI/data3/train/'
+path_to_bath = 'bathroom'
+path_to_bed = 'bedroom'
+path_to_cons = 'conservatory'
+path_to_din = 'dining_room'
+path_to_entr = 'entrance_hall_landing'
+path_to_foh = 'front_of_house'
+path_to_gard = 'garden'
+path_to_sink = 'kitchen'
+path_to_live = 'living_room'
+path_to_pool = 'pool'
+street_path = 'street_scape'
+path_to_stud = 'study_office'
+path_to_util = 'utility_room'
 
 # load images
 def load_and_read(path, resize_h=224, resize_w=224):
@@ -78,9 +79,19 @@ def prediction_and_sort(dataset, image_name):
         prediction = (predictions.argmax(1)[:,None] == np.arange(predictions.shape[1])).astype(int)
         #prediction = tf.round(new_model.predict(x)[0][0])
         print(prediction, image_name[index])
-        for i in enumerate(prediction):
-            if prediction[i][1] == 1:
-                shutil.move(os.path.join(path, image_name[index][0], image_name[index][1]), os.path.join(file_path[i], image_name[index][1]))
+        pred_index = 0
+        for itr, i in enumerate(prediction[0]):
+            if i == 1:
+                pred_index = itr
+
+        print(pred_index)
+        shutil.move(os.path.join(path, image_name[index][0], image_name[index][1]), os.path.join(root_path, file_path[pred_index], image_name[index][1]))
+        # for itr, i in enumerate(prediction):
+        #     if prediction[i][1] == 1:
+        #         print(path)
+        #         print(file_path, int(i))
+        #         print(image_name[index][1])
+        #         shutil.move(os.path.join(path, image_name[index][0], image_name[index][1]), os.path.join(root_path, file_path[int(i)], image_name[index][1]))
 
         """if prediction == 1 and internal_num < max_file_in_folder:
             shutil.move(os.path.join(path, image_name[index][0], image_name[index][1]) , os.path.join(path_to_internal, image_name[index][1]))

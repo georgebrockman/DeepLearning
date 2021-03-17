@@ -8,11 +8,11 @@ from sklearn.model_selection import train_test_split
 import tensorflow_hub as hub
 
 class_max = 1000
-batch_size = 128
+batch_size = 64
 
-module_selection = ("mobilenet_v2_100_224", 224)
+module_selection = ("mobilenet_v3_large_100_224", 224)
 handle_base, pixels = module_selection
-MODULE_HANDLE ="https://tfhub.dev/google/imagenet/{}/feature_vector/4".format(handle_base)
+MODULE_HANDLE ="https://tfhub.dev/google/imagenet/{}/feature_vector/5".format(handle_base)
 
 def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 
@@ -59,8 +59,8 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 
 
         if train == True:
-            # image = tf.image.random_flip_left_right(image)
-            # image = tf.image.random_flip_up_down(image)
+            image = tf.image.random_flip_left_right(image)
+            image = tf.image.random_flip_up_down(image)
             image = tf.image.random_brightness(image, 0.2)
             image = tf.image.random_contrast(image, 0.2, 0.5)
             image = tf.image.random_jpeg_quality(image, 75, 100)
@@ -85,7 +85,9 @@ def dataset_classifcation(path, resize_h, resize_w, train=True, limit=None):
 #path = '/Users/georgebrockman/code/georgebrockman/Autoenhance.ai/InternalExternalAI/images/training_data/'
 #path = '/media/jambobjambo/AELaCie/Datasets/DCTR/intextAI/Train'
 #path = './data2/train'
-path = 'home/Desktop/InternalExternalAI/data2/train'
+
+# Change to data3 as this is the turked dataset
+path = '../../InternalExternalAI/data3/train'
 train_data, val_data, num_train, num_classes = dataset_classifcation(path, 224, 224)
 
 IMG_WIDTH, IMG_HEIGHT = 224, 224
@@ -97,7 +99,7 @@ data_aug = tf.keras.Sequential([
     tf.keras.layers.experimental.preprocessing.RandomFlip('horizontal'),
     tf.keras.layers.experimental.preprocessing.RandomFlip('vertical'),
     tf.keras.layers.experimental.preprocessing.RandomRotation(0.25),
-    tf.keras.layers.experimental.preprocessing.RandomZoom(.5, .2)
+    #tf.keras.layers.experimental.preprocessing.RandomZoom(.5, .2)
 ])
 
 IMAGE_SIZE = (224, 224)
@@ -106,7 +108,7 @@ model = tf.keras.Sequential([
     # Explicitly define the input shape so the model can be properly
     # loaded by the TFLiteConverter
     tf.keras.layers.InputLayer(input_shape=IMAGE_SIZE + (3,)),
-    data_aug,
+    # data_aug,
     hub.KerasLayer(MODULE_HANDLE, trainable=do_fine_tuning),
     tf.keras.layers.Dropout(rate=0.2),
     tf.keras.layers.Dense(13,

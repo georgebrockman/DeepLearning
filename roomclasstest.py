@@ -12,7 +12,8 @@ new_model = tf.keras.models.load_model('model/g-inexai.h5', custom_objects={'Ker
 # add all the classes in order
 room_classes = ['bathroom','bedroom','conservatory','dining_room','entrance_hall_landing','front_of_house','garden','kitchen','living_room','pool', 'street_scape', 'study_office','utility_room']
 
-data = Image.open('./quicktestimages/utility_room/test_image8.jpg')
+
+data = Image.open('./quicktestimages/street_scape/image9.jpg')
 data = np.array(data)
 img = tf.image.resize(data,(224, 224))
 img = tf.cast(img, tf.float32)
